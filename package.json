@@ -1,0 +1,21 @@
+{
+  "name": "ledgerly-business-bookkeeping",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "seed-admin": "node scripts/seed-admin.js",
+    "check": "node --check server.js && node --check public/app.js && node --check public/admin.js && node --check scripts/seed-admin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.0",
+    "razorpay": "^2.9.6"
+  }
+}

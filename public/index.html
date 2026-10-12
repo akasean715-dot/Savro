@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1220">
+  <title>Ledgerly — Smart Business Bookkeeping</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+  <section id="authView" class="auth-view">
+    <div class="auth-orbit orbit-one"></div><div class="auth-orbit orbit-two"></div>
+    <div class="auth-card">
+      <div class="brand-lockup"><div class="brand-icon">L</div><div><b>LEDGERLY</b><span>BUSINESS OS</span></div></div>
+      <div class="auth-copy"><span class="eyebrow">YOUR NUMBERS. YOUR CONTROL.</span><h1>Run your business with clarity.</h1><p>Sales, expenses, invoices, stock and profit — in one beautiful workspace.</p></div>
+      <div class="auth-tabs"><button class="auth-tab active" data-auth="login">Sign in</button><button class="auth-tab" data-auth="register">Create account</button></div>
+      <form id="loginForm" class="auth-form"><label>Email<input id="loginEmail" type="email" placeholder="you@business.com" required></label><label>Password<input id="loginPassword" type="password" placeholder="••••••••" required></label><button class="primary-btn wide">Enter dashboard <span>→</span></button></form>
+      <form id="registerForm" class="auth-form hidden"><label>Your name<input id="regName" placeholder="Alex Morgan" required></label><label>Business name<input id="regBusiness" placeholder="Bloom Studio" required></label><label>Email<input id="regEmail" type="email" placeholder="you@business.com" required></label><label>Password<input id="regPassword" type="password" placeholder="At least 8 characters" minlength="8" required></label><button class="primary-btn wide">Create my workspace <span>→</span></button></form>
+      <div class="auth-foot"><span>🔒 Secure session</span><span>☁️ Cloud-ready</span><span>₹ INR</span></div>
+    </div>
+    <div class="auth-preview"><div class="preview-top"><span>MONTHLY OVERVIEW</span><b>October 2026</b></div><div class="preview-profit"><small>Net profit</small><strong>₹1,84,620</strong><span>↗ 18.4%</span></div><div class="preview-bars"><i style="height:38%"></i><i style="height:58%"></i><i style="height:47%"></i><i style="height:76%"></i><i style="height:64%"></i><i style="height:91%"></i><i style="height:82%"></i></div><div class="preview-bottom"><div><small>Income</small><b>₹3,42,900</b></div><div><small>Expenses</small><b>₹1,58,280</b></div></div></div>
+  </section>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <div class="side-brand"><div class="brand-icon">L</div><div><b>LEDGERLY</b><span>BUSINESS OS</span></div></div>
+      <div class="workspace"><span class="workspace-dot"></span><div><small>WORKSPACE</small><b id="businessName">My Business</b></div><span>⌄</span></div>
+      <nav>
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span>Overview</button>
+        <button class="nav-item" data-page="sales"><span>▤</span>Invoices</button>
+        <button class="nav-item" data-page="transactions"><span>↕</span>Transactions</button>
+        <button class="nav-item" data-page="inventory"><span>◫</span>Inventory</button>
+        <button class="nav-item" data-page="reports"><span>◔</span>Reports</button>
+        <button class="nav-item" data-page="subscriptions"><span>✦</span>Plans & Billing</button>
+        <button class="nav-item admin-only hidden" data-page="admin"><span>⚙</span>Admin panel</button>
+      </nav>
+      <div class="side-tip"><span>SMART TIP</span><b>Track every rupee.</b><p>Small numbers become big insights when they stay organized.</p></div>
+      <button id="logoutBtn" class="logout">↪ Sign out</button>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><button id="mobileMenu" class="mobile-menu">☰</button><span class="top-kicker">BUSINESS DASHBOARD</span><h2 id="pageTitle">Overview</h2></div><div class="top-actions"><div class="search"><span>⌕</span><input id="globalSearch" placeholder="Search your workspace..."></div><button class="icon-circle">◌</button><div class="profile"><div id="avatar">A</div><div><b id="userName">Account</b><small id="userPlan">Free trial</small></div></div></div></header>
+      <div id="trialNotice" class="notice hidden" role="status"></div>
+      <div id="page" class="page"></div>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden"><div class="modal-backdrop" data-close-modal></div><div class="modal-card"><button class="modal-close" data-close-modal>×</button><div id="modalContent"></div></div></div>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

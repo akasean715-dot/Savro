@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#10172a">
+  <title>Ledgerly Admin — Control Center</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/"><span class="brand-mark">L</span><span><b>LEDGERLY</b><small>OWNER CONTROL CENTER</small></span></a>
+      <div class="top-right"><span class="secure"><i></i> Protected admin area</span><a class="back-link" href="/">Open bookkeeping app ↗</a></div>
+    </header>
+
+    <section id="loginView" class="login-wrap hidden">
+      <div class="login-card">
+        <div class="eyebrow">OWNER ACCESS</div><h1>Your business.<br><span>Your control.</span></h1>
+        <p>Sign in with the admin account configured for Ledgerly to manage customer accounts and plans.</p>
+        <form id="loginForm">
+          <label>Email address<input id="email" type="email" autocomplete="username" placeholder="admin@yourbusiness.com" required></label>
+          <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="Your admin password" required></label>
+          <button class="primary" type="submit">Sign in to admin <span>→</span></button>
+          <p id="loginError" class="error" role="alert"></p>
+        </form>
+        <small class="hint">Sign in with the administrator email and password configured in your Ledgerly .env file.</small>
+      </div>
+    </section>
+
+    <section id="deniedView" class="message-card hidden"><div class="lock-icon">⌁</div><h1>Admin access required</h1><p>This account is not an administrator. Sign out of the current account and sign in with your admin account.</p><button id="switchAccount" class="primary">Sign in with another account</button></section>
+
+    <section id="dashboardView" class="hidden">
+      <div class="hero"><div><div class="eyebrow">LEDGERLY / ADMIN</div><h1>Control center<span>.</span></h1><p>Manage your customers, access and subscription pricing from one place.</p></div><div class="hero-actions"><span id="adminIdentity" class="identity">Owner account</span><button id="logoutBtn" class="ghost">Sign out</button></div></div>
+      <div class="stats">
+        <article class="stat-card"><div class="stat-icon purple">♙</div><span>Total accounts</span><strong id="totalUsers">—</strong><small>Registered Ledgerly users</small></article>
+        <article class="stat-card"><div class="stat-icon mint">✓</div><span>Active subscriptions</span><strong id="activeUsers">—</strong><small>Accounts marked active</small></article>
+        <article class="stat-card"><div class="stat-icon amber">◷</div><span>On trial</span><strong id="trialUsers">—</strong><small>Trial or pending accounts</small></article>
+        <article class="stat-card"><div class="stat-icon blue">✦</div><span>Available plans</span><strong id="totalPlans">—</strong><small>Subscription catalogue</small></article>
+      </div>
+      <div id="notice" class="notice hidden" role="status"></div>
+      <div class="content-grid">
+        <section class="panel customers-panel">
+          <div class="panel-head"><div><div class="eyebrow">CUSTOMER DIRECTORY</div><h2>Accounts</h2><p>Review users and update their subscription status.</p></div><button id="reloadBtn" class="ghost">↻ Refresh</button></div>
+          <div class="table-tools"><input id="userSearch" type="search" placeholder="Search business, name or email…"><span id="userCount" class="count-pill">0 accounts</span></div>
+          <div class="table-scroll"><table><thead><tr><th>Business / user</th><th>Plan</th><th>Joined</th><th>Trial ends</th><th>Subscription status / trial</th></tr></thead><tbody id="usersBody"><tr><td colspan="5" class="empty-cell">Loading accounts…</td></tr></tbody></table></div>
+        </section>
+        <section class="panel plans-panel">
+          <div class="panel-head"><div><div class="eyebrow">REVENUE SETTINGS</div><h2>Subscription plans</h2><p>Set the prices customers see in Ledgerly.</p></div></div>
+          <form id="planForm" class="plan-form">
+            <label>Plan name<input name="name" placeholder="e.g. Growth" required maxlength="50"></label>
+            <div class="form-row"><label>Price (₹)<input name="price" type="number" min="1" step="1" placeholder="299" required></label><label>Billing<select name="period"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></label></div>
+            <label>Features <small>Separate each with a comma</small><textarea name="features" rows="3" placeholder="Unlimited invoices, Inventory, Reports"></textarea></label>
+            <button class="primary" type="submit">＋ Create plan</button>
+          </form>
+          <div id="plansList" class="plans-list"><div class="empty-cell">Loading plans…</div></div>
+        </section>
+      </div>
+      <footer>Ledgerly Admin <span>•</span> Keep your admin credentials private. Changes apply to your connected database.</footer>
+    </section>
+  </main>
+  <script src="admin.js"></script>
+</body>
+</html>
