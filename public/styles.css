@@ -63,3 +63,90 @@
     font-size: 25px;
   }
 }
+
+/* Savro: mobile dashboard panel layout fix */
+@media (max-width: 780px) {
+  .dash-grid,
+  .admin-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+    min-width: 0;
+    gap: 16px;
+  }
+
+  .dash-grid > .panel,
+  .admin-grid > .panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Keep the chart scroll inside its own panel */
+  .chart-scroll {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chart-inner {
+    width: 760px;
+    min-width: 760px;
+    max-width: none;
+  }
+
+  /* Prevent dashboard content from widening the page */
+  .main,
+  .page {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .panel-head {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .panel-head h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .metric-row {
+    gap: 10px;
+  }
+
+  .metric-row > div {
+    min-width: 0;
+  }
+
+  .metric-row b {
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .recent {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .recent > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .recent > strong,
+  .recent > b {
+    flex-shrink: 0;
+  }
+}
