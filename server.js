@@ -73,4 +73,18 @@ app.patch('/api/admin/plans/:id',auth,adminOnly,async(req,res)=>{const allowed=[
 app.get('/api/health',async(_req,res)=>{try{await pool.query('SELECT 1');res.json({ok:true,service:'Ledgerly MySQL API'})}catch{res.status(503).json({ok:false,service:'Ledgerly MySQL API',message:'MySQL is unavailable.'})}});
 app.get(/.*/, (req,res,next)=>{if(req.path.startsWith('/api/'))return res.status(404).json({message:'API endpoint not found.'});res.sendFile(path.join(PUBLIC_DIR,'index.html'),e=>{if(e)next(e)})});
 app.use((err,req,res,next)=>{if(res.headersSent)return next(err);console.error('Request failed:',err.message);const s=Number(err.status||err.statusCode);res.status(s>=400&&s<600?s:500).json({message:s>=400&&s<500?err.message:'An unexpected server error occurred.'})});
-try{await initDB();app.listen(PORT,()=>console.log(`Ledgerly MySQL API running at http://localhost:${PORT}`))}catch(e){console.error('Could not connect to MySQL or initialize tables:',e.message);process.exit(1)}
+
+try {
+    await initDB();
+
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Ledgerly MySQL API running on port ${PORT}`);
+    });
+} catch (e) {
+    console.error(
+        'Could not connect to MySQL or initialize tables:',
+        e.message
+    );
+    process.exit(1);
+}
+
