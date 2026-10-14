@@ -150,3 +150,34 @@
     flex-shrink: 0;
   }
 }
+/* Fix topbar search and refresh alignment */
+.topbar {
+  min-width: 0;
+}
+
+.top-actions {
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 12px;
+}
+
+.top-actions .search {
+  flex: 0 1 250px;
+  width: 250px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.top-actions .icon-circle {
+  flex: 0 0 38px;
+}
+
+.top-actions .profile {
+  flex: 0 0 auto;
+}

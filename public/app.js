@@ -12,6 +12,35 @@ $('#loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/ap
 $('#registerForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/auth/register',{method:'POST',body:JSON.stringify({name:$('#regName').value.trim(),businessName:$('#regBusiness').value.trim(),email:$('#regEmail').value.trim(),password:$('#regPassword').value})});state.token=d.token;localStorage.setItem('ledgerly_token',d.token);state.user=d.user;showApp();toast('Workspace created 🎉')}catch(err){toast(err.message||'Could not create account',true)}};
 async function logout(){state.token=null;state.user=null;localStorage.removeItem('ledgerly_token');$('#appView').classList.add('hidden');$('#authView').classList.remove('hidden')}
 $('#logoutBtn').onclick=logout;$('#mobileMenu').onclick=()=>$('.sidebar').classList.toggle('open');
+
+const refreshBtn = $('#refreshBtn');
+
+if (refreshBtn) {
+  refreshBtn.onclick = async () => {
+    if (refreshBtn.disabled) return;
+
+    refreshBtn.disabled = true;
+    refreshBtn.style.opacity = '0.6';
+
+    try {
+      await render();
+
+      const errorPanel = $('#page .panel.empty');
+
+      if (errorPanel) {
+        toast(errorPanel.textContent || 'Could not refresh data', true);
+      } else {
+        toast('Data refreshed successfully');
+      }
+    } catch (err) {
+      toast(err.message || 'Could not refresh data', true);
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.style.opacity = '';
+    }
+  };
+}
+
 $$('.nav-item').forEach(b=>b.onclick=()=>{state.page=b.dataset.page;$$('.nav-item').forEach(x=>x.classList.toggle('active',x===b));$('.sidebar').classList.remove('open');render()});
 function showApp(){ $('#authView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#businessName').textContent=state.user.businessName||'My Business';$('#userName').textContent=state.user.name;$('#avatar').textContent=(state.user.name||'A')[0].toUpperCase();$('#userPlan').textContent=state.user.subscriptionPlan?`${state.user.subscriptionPlan} plan`:state.user.subscriptionStatus==='trial'?'Free trial':'No plan';const trialNotice=$('#trialNotice');if(trialNotice){if(state.user.trialExpired){trialNotice.textContent='Your 30-day free trial has ended. Your existing records are safe and available in read-only mode. Choose a paid plan to resume editing.';trialNotice.classList.remove('hidden');trialNotice.classList.add('bad')}else if(state.user.subscriptionStatus==='trial'&&state.user.trialEndsAt){trialNotice.textContent=`Free trial: ${state.user.trialDaysRemaining} day(s) remaining. No payment method is required during your trial.`;trialNotice.classList.remove('hidden','bad')}else{trialNotice.classList.add('hidden');trialNotice.classList.remove('bad')}}$$('.admin-only').forEach(x=>x.classList.toggle('hidden',state.user.role!=='admin'));render() }
 async function boot(){try{if(!state.token)throw new Error('Sign in');const d=await api('/api/auth/me');state.user=d.user;showApp()}catch{$('#appView').classList.add('hidden');$('#authView').classList.remove('hidden')}}
