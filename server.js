@@ -61,7 +61,81 @@ app.delete('/api/products/:id',auth,async(req,res)=>{await pool.query('DELETE FR
 app.get('/api/reports',auth,async(req,res)=>{const tx=await listRecords('transactions',req.user.uid,'date'),income=tx.filter(x=>recordType(x)==='income'&&isPaidRecord(x)).reduce((a,x)=>a+Number(x.amount||0),0),expenses=tx.filter(x=>recordType(x)==='expense'&&isPaidRecord(x)).reduce((a,x)=>a+Number(x.amount||0),0),byCategory={};for(const x of tx)if(recordType(x)==='expense'&&isPaidRecord(x))byCategory[x.category||'Other']=(byCategory[x.category||'Other']||0)+Number(x.amount||0);res.json({income,expenses,profit:income-expenses,byCategory,transactionCount:tx.length})});
 app.get('/api/plans',async(_req,res)=>res.json((await listPlans()).filter(p=>p.active)));
 app.post('/api/subscriptions/select',auth,async(req,res)=>{try{const plan=await getPlan(String(req.body?.planId||''));if(!plan||!plan.active)return res.status(404).json({message:'Plan not found.'});if(req.user.role==='admin')return res.status(400).json({message:'Admin accounts do not need a customer subscription.'});await updateUserProfile(req.user.uid,{subscriptionPlan:plan.name,selectedPlanId:plan._id,subscriptionStatus:'pending_payment',razorpaySubscriptionId:null,subscriptionEndsAt:null});res.json({user:safeUser(await getUser(req.user.uid)),message:'Plan selected. Paid access remains locked until payment is verified.'})}catch(e){console.error('Plan selection failed:',e.message);res.status(500).json({message:'Could not save your plan selection.'})}});
-app.post('/api/subscriptions/create',auth,async(req,res)=>{if(!razorpay)return res.status(503).json({message:'Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.'});const plan=await getPlan(req.body.planId);if(!plan||!plan.active)return res.status(404).json({message:'Plan not found.'});if(!Number.isFinite(Number(plan.price))||Number(plan.price)<=0)return res.status(400).json({message:'This plan has an invalid price.'});let planId=plan.razorpayPlanId;if(!planId){const rp=await razorpay.plans.create({period:plan.period||'monthly',interval:plan.interval||1,item:{name:`Ledgerly ${plan.name}`,amount:Math.round(Number(plan.price)*100),currency:'INR',description:`${plan.name} bookkeeping plan`}});planId=rp.id;await updatePlan(plan._id,{razorpayPlanId:planId})}const sub=await razorpay.subscriptions.create({plan_id:planId,total_count:120,quantity:1,customer_notify:true,notes:{userId:req.user.uid,plan:plan.name}});await updateUserProfile(req.user.uid,{razorpaySubscriptionId:sub.id,subscriptionPlan:plan.name,subscriptionStatus:'pending_payment'});res.json({subscriptionId:sub.id,keyId:process.env.RAZORPAY_KEY_ID,plan})});
+
+app.post('/api/subscriptions/create', auth, async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(503).json({
+        message: 'Razorpay is not configured.'
+      });
+    }
+
+    const plan = await getPlan(req.body.planId);
+
+    if (!plan || !plan.active) {
+      return res.status(404).json({ message: 'Plan not found.' });
+    }
+
+    const price = Number(plan.price);
+
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ message: 'This plan has an invalid price.' });
+    }
+
+    // Create a new Razorpay plan when the saved price changes.
+    // Existing Razorpay plans and subscriptions are not modified.
+    let planId = plan.razorpayPlanId;
+
+    if (!planId || Number(plan.razorpayPlanPrice) !== price) {
+      const rp = await razorpay.plans.create({
+        period: plan.period || 'monthly',
+        interval: plan.interval || 1,
+        item: {
+          name: `Savro ${plan.name}`,
+          amount: Math.round(price * 100),
+          currency: 'INR',
+          description: `${plan.name} bookkeeping plan`
+        }
+      });
+
+      planId = rp.id;
+
+      await updatePlan(plan._id, {
+        razorpayPlanId: planId,
+        razorpayPlanPrice: price
+      });
+    }
+
+    const sub = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: 120,
+      quantity: 1,
+      customer_notify: true,
+      notes: {
+        userId: req.user.uid,
+        plan: plan.name
+      }
+    });
+
+    await updateUserProfile(req.user.uid, {
+      razorpaySubscriptionId: sub.id,
+      subscriptionPlan: plan.name,
+      subscriptionStatus: 'pending_payment'
+    });
+
+    res.json({
+      subscriptionId: sub.id,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      plan
+    });
+  } catch (e) {
+    console.error('Subscription creation failed:', e.message);
+    res.status(500).json({
+      message: 'Could not create the subscription. Please try again.'
+    });
+  }
+});
+
 async function updateUserProfile(id,patch){const [rows]=await pool.query('SELECT profile FROM users WHERE id=?',[id]);if(!rows.length)return;await pool.query('UPDATE users SET profile=? WHERE id=?',[JSON.stringify({...parseJSON(rows[0].profile),...patch}),id])}
 app.post('/api/subscriptions/verify',auth,async(req,res)=>{
   try {
