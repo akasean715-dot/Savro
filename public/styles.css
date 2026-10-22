@@ -387,3 +387,10 @@ tbody td[colspan="7"] .empty {
     font-size: 10px;
   }
 }
+
+
+/* Savro Settings and Accounting pages */
+.settings-stack{display:grid;gap:16px}.settings-stack .panel{padding:22px}.settings-stack .panel-head{margin-bottom:20px}.settings-stack .form-grid{gap:16px}.settings-stack .form-grid label{min-width:0}.settings-stack .form-grid input,.settings-stack .form-grid select,.settings-stack .form-grid textarea{width:100%;min-width:0}.settings-check{display:flex!important;align-items:center;gap:10px!important;align-self:center}.settings-check input{width:16px!important;height:16px;accent-color:var(--brand)}.settings-hint{color:var(--muted);font-size:11px;line-height:1.6}.settings-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}.accounting-grid{align-items:start}.accounting-grid .panel{min-width:0}@media(max-width:600px){.settings-stack .panel{padding:17px}.settings-actions>*{flex:1}.accounting-grid .panel-head{gap:12px;flex-direction:column}}
+
+/* Business logo picker and account avatar logo */
+#avatar{overflow:hidden;display:flex;align-items:center;justify-content:center}#avatar.has-logo{background:#fff;padding:0}#avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.logo-upload-field{display:flex;flex-direction:column;gap:8px;min-width:0}.logo-upload-field>label{font-weight:600}.logo-upload-field input[type=file]{max-width:100%;padding:9px;border:1px solid var(--border,#dfe3ea);border-radius:10px;background:var(--surface,#fff)}.logo-upload-preview{width:76px;height:76px;border:1px dashed var(--border,#dfe3ea);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface,#fff);color:var(--muted,#778092);font-size:11px;text-align:center}.logo-upload-preview img{width:100%;height:100%;object-fit:contain}.logo-upload-field small{color:var(--muted,#778092);font-size:12px}
