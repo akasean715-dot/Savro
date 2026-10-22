@@ -120,5 +120,89 @@ async function renderAdmin(){const [users,plans]=await Promise.all([api('/api/ad
 window.adminStatus=async(id,status)=>{try{await api('/api/admin/users/'+id+'/status',{method:'PATCH',body:JSON.stringify({subscriptionStatus:status})});toast('User status updated')}catch(e){toast(e.message,true)}}
 window.extendTrial=async id=>{try{const d=await api('/api/admin/users/'+id+'/extend-trial',{method:'POST',body:JSON.stringify({days:30})});toast(d.message||'Trial extended by 30 days');await renderAdmin()}catch(e){toast(e.message,true)}}
 window.openPlan=()=>{openModal(`<h3>Create pricing plan</h3><form id="planForm" class="form-grid"><label>Name<input name="name" placeholder="Business" required></label><label>Price / month<input name="price" type="number" min="1" required></label><label style="grid-column:1/-1">Features<input name="features" placeholder="Unlimited invoices, Inventory, Reports"></label><button class="primary-btn" style="grid-column:1/-1">Create plan</button></form>`);$('#planForm').onsubmit=async e=>{e.preventDefault();const o=Object.fromEntries(new FormData(e.target));o.features=o.features.split(',').map(x=>x.trim()).filter(Boolean);try{await api('/api/admin/plans',{method:'POST',body:JSON.stringify(o)});closeModal();toast('Plan created');renderAdmin()}catch(err){toast(err.message,true)}}}
+
+// Global workspace search: searches the signed-in user's invoices, transactions, and products.
+(function setupGlobalSearch(){
+  const input = document.getElementById('globalSearch');
+  if (!input) return;
+  const shell = input.closest('.search');
+  if (!shell) return;
+  shell.style.position = 'relative';
+  const panel = document.createElement('div');
+  panel.id = 'globalSearchResults';
+  panel.setAttribute('role','listbox');
+  panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 9px);right:0;width:min(430px,90vw);max-height:420px;overflow:auto;background:#fff;border:1px solid #e4e7ec;border-radius:14px;box-shadow:0 18px 48px rgba(16,24,40,.18);z-index:1000;padding:7px;color:#101828';
+  shell.appendChild(panel);
+  let timer = null, requestNo = 0;
+  const norm = v => String(v ?? '').toLocaleLowerCase().trim();
+  const close = () => { panel.style.display='none'; };
+  const destination = {invoice:'sales',transaction:'transactions',product:'inventory'};
+  function renderResults(items, query){
+    if (!items.length) {
+      panel.innerHTML = `<div style="padding:15px 12px;color:#667085;font-size:12px">No matching records found for “${esc(query)}”.</div>`;
+      panel.style.display='block'; return;
+    }
+    panel.innerHTML = `<div style="padding:8px 10px 6px;color:#667085;font-size:10px;font-weight:800;letter-spacing:.08em">SEARCH RESULTS · ${items.length}</div>` + items.map((it,i)=>`<button type="button" data-result-index="${i}" style="display:flex;width:100%;gap:10px;align-items:center;text-align:left;padding:10px;border:0;border-radius:9px;background:transparent;cursor:pointer;color:#101828"><span style="width:34px;height:34px;flex:none;display:grid;place-items:center;background:#f2f4f7;border-radius:10px;font-size:15px">${it.type==='invoice'?'▤':it.type==='transaction'?'↕':'▦'}</span><span style="min-width:0;flex:1"><b style="display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title)}</b><small style="display:block;margin-top:3px;color:#667085;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.subtitle)}</small></span><span style="font-size:9px;color:#667085;background:#f2f4f7;border-radius:20px;padding:4px 7px">${it.type==='invoice'?'Invoice':it.type==='transaction'?'Transaction':'Inventory'}</span></button>`).join('');
+    panel.querySelectorAll('[data-result-index]').forEach(btn=>{
+      btn.addEventListener('mouseenter',()=>btn.style.background='#f8fafc');
+      btn.addEventListener('mouseleave',()=>btn.style.background='transparent');
+      btn.addEventListener('click',async()=>{
+        const item=items[Number(btn.dataset.resultIndex)];
+        input.value=''; close();
+        state.page=destination[item.type];
+        $$('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page===state.page));
+        await render();
+        const rows=Array.from(document.querySelectorAll('#page tbody tr'));
+        const needle=norm(item.title);
+        const row=rows.find(r=>norm(r.innerText||r.textContent).includes(needle));
+        if(row){row.style.outline='2px solid #8b7cf6';row.style.outlineOffset='-2px';row.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>{row.style.outline='';row.style.outlineOffset=''},2600)}
+      });
+    });
+    panel.style.display='block';
+  }
+  async function search(query, id){
+    if(id!==requestNo)return;
+    if(query.length<2){close();return;}
+    panel.innerHTML='<div style="padding:14px 12px;color:#667085;font-size:12px">Searching invoices, transactions and inventory…</div>';
+    panel.style.display='block';
+    try{
+      const [invoices,transactions,products]=await Promise.all([
+        api('/api/invoices'), api('/api/transactions'), api('/api/products')
+      ]);
+      if(id!==requestNo)return;
+      const results=[];
+      (Array.isArray(invoices)?invoices:[]).forEach(i=>{
+        const title=String(i.number||'Invoice');
+        const customer=String(i.customer?.name||'');
+        const text=norm([title,customer,i.customer?.phone,i.customer?.email,i.status,i.total].join(' '));
+        if(text.includes(query))results.push({type:'invoice',title,subtitle:`${customer||'Customer not specified'} · ${String(i.status||'unpaid')} · ${money(i.total)}`});
+      });
+      (Array.isArray(transactions)?transactions:[]).forEach(t=>{
+        const title=String(t.description||'Transaction');
+        const party=String(t.partyName||'');
+        const text=norm([title,party,t.category,t.type,t.paymentStatus,t.amount,t.date].join(' '));
+        if(text.includes(query))results.push({type:'transaction',title,subtitle:`${party?party+' · ':''}${t.type==='income'?'Income':'Expense'} · ${money(t.amount)} · ${t.paymentStatus||'recorded'}`});
+      });
+      (Array.isArray(products)?products:[]).forEach(p=>{
+        const title=String(p.name||'Product');
+        const text=norm([title,p.sku,p.category,p.stock,p.buyPrice,p.sellPrice].join(' '));
+        if(text.includes(query))results.push({type:'product',title,subtitle:`${p.sku?`SKU ${p.sku} · `:''}${p.category||'Uncategorized'} · ${Number(p.stock)||0} in stock`});
+      });
+      renderResults(results.slice(0,20),query);
+    }catch(err){
+      if(id!==requestNo)return;
+      panel.innerHTML=`<div style="padding:14px 12px;color:#b42318;font-size:12px">Search couldn't load records. ${esc(err.message||'Please try again.')}</div>`;
+      panel.style.display='block';
+    }
+  }
+  input.addEventListener('input',()=>{
+    clearTimeout(timer); const query=norm(input.value); const id=++requestNo;
+    if(query.length<2){close();return;}
+    timer=setTimeout(()=>search(query,id),250);
+  });
+  input.addEventListener('focus',()=>{if(norm(input.value).length>=2 && panel.innerHTML)panel.style.display='block'});
+  input.addEventListener('keydown',event=>{if(event.key==='Escape'){input.value='';requestNo++;close();input.blur()}else if(event.key==='Enter'){const first=panel.querySelector('[data-result-index="0"]');if(first){event.preventDefault();first.click()}}});
+  document.addEventListener('click',event=>{if(!shell.contains(event.target))close()});
+})();
 loadSignupPlans();
 boot();
