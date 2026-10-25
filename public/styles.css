@@ -415,7 +415,7 @@ tbody td[colspan="7"] .empty {
 @media(max-width:480px){.modal-card:has(.signout-confirm){padding:24px 20px;border-radius:20px}.signout-actions{flex-direction:column-reverse;align-items:stretch}.signout-actions button{width:100%}}
 
 /* Savro email OTP password recovery */
-.forgot-password-link{display:block;margin:9px 0 0 auto;padding:5px 0;font-size:11px}
+.login-recovery-row{display:flex;justify-content:flex-end;margin-top:-7px;margin-bottom:-4px}.forgot-password-link{display:inline-flex;align-items:center;justify-content:flex-end;margin:0;padding:5px 0;font-size:12px;line-height:1.4;color:#5148e5;text-decoration:underline;text-underline-offset:3px;min-height:28px}.forgot-password-link:hover,.forgot-password-link:focus-visible{color:#342bc2}.forgot-password-link:focus-visible{outline:2px solid #827aff;outline-offset:3px;border-radius:4px}
 .forgot-password-panel{margin-top:18px;padding:22px;border:1px solid #e8ebf4;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(248,249,255,.94));box-shadow:0 14px 36px rgba(35,45,78,.06)}
 .forgot-back{display:block;margin:0 0 20px;padding:0;font-size:11px}
 .forgot-symbol{width:46px;height:46px;display:grid;place-items:center;margin-bottom:17px;border-radius:15px;background:linear-gradient(135deg,#635bff,#8a7dff);color:#fff;font-size:23px;box-shadow:0 10px 24px rgba(99,91,255,.2)}
