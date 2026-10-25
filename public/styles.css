@@ -394,3 +394,38 @@ tbody td[colspan="7"] .empty {
 
 /* Business logo picker and account avatar logo */
 #avatar{overflow:hidden;display:flex;align-items:center;justify-content:center}#avatar.has-logo{background:#fff;padding:0}#avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.logo-upload-field{display:flex;flex-direction:column;gap:8px;min-width:0}.logo-upload-field>label{font-weight:600}.logo-upload-field input[type=file]{max-width:100%;padding:9px;border:1px solid var(--border,#dfe3ea);border-radius:10px;background:var(--surface,#fff)}.logo-upload-preview{width:76px;height:76px;border:1px dashed var(--border,#dfe3ea);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface,#fff);color:var(--muted,#778092);font-size:11px;text-align:center}.logo-upload-preview img{width:100%;height:100%;object-fit:contain}.logo-upload-field small{color:var(--muted,#778092);font-size:12px}
+
+/* Savro sign-out confirmation modal */
+.signout-confirm{padding:12px 3px 2px;max-width:100%}
+.modal-card:has(.signout-confirm){max-width:480px;padding:30px;border:1px solid rgba(255,255,255,.85);border-radius:24px;box-shadow:0 32px 90px rgba(12,20,36,.28)}
+.modal-card:has(.signout-confirm) .modal-close{right:14px;top:14px;width:32px;height:32px;background:#f3f5f9;color:#667085;font-size:17px;transition:background .18s,color .18s,transform .18s}
+.modal-card:has(.signout-confirm) .modal-close:hover{background:#e8ebf2;color:#172033;transform:rotate(90deg)}
+.signout-icon{width:52px;height:52px;display:grid;place-items:center;margin:0 0 20px;border-radius:17px;background:linear-gradient(145deg,#fff4cf,#ffebad);color:#a65b12;box-shadow:inset 0 0 0 1px rgba(184,120,20,.08)}
+.signout-icon span{font-size:25px;font-weight:800;line-height:1}
+.signout-eyebrow{font-size:9px;font-weight:800;letter-spacing:.16em;color:#8b95a7;margin-bottom:8px}
+.modal-card .signout-confirm h3{font:800 23px/1.2 Manrope,'DM Sans',sans-serif;letter-spacing:-.035em;color:#111a2b;margin:0 35px 9px 0}
+.modal-card .signout-confirm p{font-size:12px;line-height:1.7;color:#758197;margin:0;max-width:365px}
+.signout-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:27px;padding-top:18px;border-top:1px solid #edf0f5;flex-wrap:wrap}
+.signout-actions button{min-height:42px;border-radius:12px;padding:0 16px;font-size:12px;font-weight:800;transition:transform .16s,box-shadow .16s,background .16s}
+.signout-cancel{border:1px solid #e2e7ef;background:#fff;color:#475467}
+.signout-cancel:hover{background:#f7f8fb;border-color:#cbd3e0}
+.signout-confirm-btn{display:inline-flex;align-items:center;justify-content:center;gap:18px;border:1px solid #574fe5;background:linear-gradient(135deg,#635bff,#5148df);color:#fff;box-shadow:0 8px 18px rgba(99,91,255,.23)}
+.signout-confirm-btn:hover{transform:translateY(-1px);box-shadow:0 11px 22px rgba(99,91,255,.3)}
+.signout-confirm-btn span:last-child{font-size:17px;line-height:1}
+@media(max-width:480px){.modal-card:has(.signout-confirm){padding:24px 20px;border-radius:20px}.signout-actions{flex-direction:column-reverse;align-items:stretch}.signout-actions button{width:100%}}
+
+/* Savro email OTP password recovery */
+.forgot-password-link{display:block;margin:9px 0 0 auto;padding:5px 0;font-size:11px}
+.forgot-password-panel{margin-top:18px;padding:22px;border:1px solid #e8ebf4;border-radius:20px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(248,249,255,.94));box-shadow:0 14px 36px rgba(35,45,78,.06)}
+.forgot-back{display:block;margin:0 0 20px;padding:0;font-size:11px}
+.forgot-symbol{width:46px;height:46px;display:grid;place-items:center;margin-bottom:17px;border-radius:15px;background:linear-gradient(135deg,#635bff,#8a7dff);color:#fff;font-size:23px;box-shadow:0 10px 24px rgba(99,91,255,.2)}
+.forgot-password-panel h2{font:800 25px/1.15 Manrope,sans-serif;letter-spacing:-.035em;margin:8px 0 10px;color:#111a2b}
+.forgot-password-panel>p:not(.forgot-status){font-size:12px;line-height:1.7;color:#778196;margin:0 0 20px}
+.forgot-password-panel .auth-form{margin-top:14px}
+.forgot-password-panel .auth-form label{display:grid;gap:7px;font-size:11px;font-weight:700;color:#3e485a}
+.forgot-password-panel .auth-form input{width:100%;min-width:0;border:1px solid #dfe4ee;border-radius:11px;padding:12px 13px;background:#fff;outline:none;transition:border-color .18s,box-shadow .18s}
+.forgot-password-panel .auth-form input:focus{border-color:#827aff;box-shadow:0 0 0 4px rgba(99,91,255,.1)}
+.forgot-password-panel .primary-btn{margin-top:8px}
+.forgot-password-panel .action-link{display:block;margin:12px auto 0;padding:5px;font-size:11px}
+.forgot-status{font-size:11px;line-height:1.6;color:#5b50d7;margin:14px 0 0;overflow-wrap:anywhere}
+@media(max-width:480px){.forgot-password-panel{padding:18px;border-radius:17px}.forgot-password-panel h2{font-size:23px}}

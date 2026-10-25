@@ -12,7 +12,39 @@ async function loadSignupPlans(){const holder=$('#signupPlanCards');if(!holder)r
 $('#existingAccountBtn').onclick=()=>showAuthForms('login');$('#changePlanBtn').onclick=()=>{$('#authFormsArea').classList.add('hidden');$('#signupPlanChooser').classList.remove('hidden')};$$('.auth-tab').forEach(b=>b.onclick=()=>setAuth(b.dataset.auth));$$('[data-close-modal]').forEach(b=>b.onclick=closeModal);
 $('#loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:$('#loginEmail').value.trim(),password:$('#loginPassword').value})});state.token=d.token;localStorage.setItem('ledgerly_token',d.token);state.user=d.user;showApp()}catch(err){toast(err.message||'Could not sign in',true)}};
 $('#registerForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/auth/register',{method:'POST',body:JSON.stringify({name:$('#regName').value.trim(),businessName:$('#regBusiness').value.trim(),email:$('#regEmail').value.trim(),password:$('#regPassword').value,selectedPlan:state.selectedPlan})});state.token=d.token;localStorage.setItem('ledgerly_token',d.token);state.user=d.user;showApp();toast('Workspace created 🎉')}catch(err){toast(err.message||'Could not create account',true)}};
-async function logout(){state.token=null;state.user=null;localStorage.removeItem('ledgerly_token');$('#appView').classList.add('hidden');$('#authView').classList.remove('hidden')}
+let forgotResetToken='';
+function showForgotStage(stage){$('#loginForm').classList.add('hidden');$('#registerForm').classList.add('hidden');$('#forgotPasswordPanel').classList.remove('hidden');$('#forgotEmailForm').classList.toggle('hidden',stage!=='email');$('#forgotOtpForm').classList.toggle('hidden',stage!=='otp');$('#forgotNewPasswordForm').classList.toggle('hidden',stage!=='password');$('#forgotStatus').textContent='';$('#authFormsArea .auth-tabs').classList.add('hidden');$('#selectedPlanSummary').classList.add('hidden');$('#changePlanBtn').classList.add('hidden');if(stage==='email'){$('#forgotHeading').textContent='Reset your password';$('#forgotDescription').textContent="Enter your Savro email address and we'll send a six-digit verification code.";$('#forgotEmail').value=$('#loginEmail').value.trim();}else if(stage==='otp'){$('#forgotHeading').textContent='Check your email';$('#forgotDescription').textContent='Enter the six-digit code sent to your email. The code expires in 10 minutes.';$('#forgotOtp').focus()}else{$('#forgotHeading').textContent='Create a new password';$('#forgotDescription').textContent='Choose a strong password you have not used for this account.';$('#forgotNewPassword').focus()}}
+function exitForgot(){forgotResetToken='';$('#forgotPasswordPanel').classList.add('hidden');$('#authFormsArea .auth-tabs').classList.remove('hidden');$('#loginForm').classList.remove('hidden');$('#registerForm').classList.add('hidden');$('#selectedPlanSummary').classList.remove('hidden');$('#changePlanBtn').classList.add('hidden');setAuth('login')}
+$('#forgotPasswordLink').onclick=()=>showForgotStage('email');$('#forgotBackToLogin').onclick=exitForgot;
+$('#forgotEmailForm').onsubmit=async e=>{e.preventDefault();const email=$('#forgotEmail').value.trim().toLowerCase();try{const d=await api('/api/auth/forgot-password/request',{method:'POST',body:JSON.stringify({email})});$('#forgotStatus').textContent=d.message||'If an account exists for that email, a code has been sent.';showForgotStage('otp');$('#forgotStatus').textContent=d.message||'If an account exists for that email, a code has been sent.';}catch(err){$('#forgotStatus').textContent=err.message||'Could not send the code.';}};
+$('#resendForgotOtp').onclick=()=>$('#forgotEmailForm').requestSubmit();
+$('#forgotOtpForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/auth/forgot-password/verify',{method:'POST',body:JSON.stringify({email:$('#forgotEmail').value.trim().toLowerCase(),otp:$('#forgotOtp').value.trim()})});forgotResetToken=d.resetToken;showForgotStage('password');$('#forgotStatus').textContent='Code verified. Choose your new password.';}catch(err){$('#forgotStatus').textContent=err.message||'Could not verify the code.';}};
+$('#forgotNewPasswordForm').onsubmit=async e=>{e.preventDefault();const newPassword=$('#forgotNewPassword').value,confirm=$('#forgotConfirmPassword').value;if(newPassword!==confirm){$('#forgotStatus').textContent='The passwords do not match.';return}try{const d=await api('/api/auth/forgot-password/reset',{method:'POST',body:JSON.stringify({email:$('#forgotEmail').value.trim().toLowerCase(),resetToken:forgotResetToken,newPassword})});forgotResetToken='';$('#loginEmail').value=$('#forgotEmail').value.trim().toLowerCase();$('#loginPassword').value='';exitForgot();toast(d.message||'Password reset successfully. Sign in with your new password.');}catch(err){$('#forgotStatus').textContent=err.message||'Could not reset the password.';}};
+async function logout(){
+  openModal(`
+    <div class="signout-confirm">
+      <div class="signout-icon" aria-hidden="true"><span>↪</span></div>
+      <div class="signout-eyebrow">ACCOUNT SECURITY</div>
+      <h3>Sign out of Savro?</h3>
+      <p>You’ll be signed out of your account on this device. You can sign back in anytime.</p>
+      <div class="signout-actions">
+        <button type="button" class="signout-cancel" id="cancelSignOut">Stay signed in</button>
+        <button type="button" class="signout-confirm-btn" id="confirmSignOut"><span>Sign out</span><span aria-hidden="true">→</span></button>
+      </div>
+    </div>`);
+  const cancelButton = $('#cancelSignOut');
+  const confirmButton = $('#confirmSignOut');
+  if (cancelButton) cancelButton.onclick = closeModal;
+  if (confirmButton) confirmButton.onclick = () => {
+    closeModal();
+    state.token = null;
+    state.user = null;
+    localStorage.removeItem('ledgerly_token');
+    $('#appView').classList.add('hidden');
+    $('#authView').classList.remove('hidden');
+    toast('You have signed out');
+  };
+}
 $('#logoutBtn').onclick=logout;$('#mobileMenu').onclick=()=>$('.sidebar').classList.toggle('open');
 
 const refreshBtn = $('#refreshBtn');

@@ -34,3 +34,11 @@ Ledgerly uses **MySQL for user accounts, passwords, bookkeeping records, invento
 ## Admin account configuration
 
 A local `.env` file is included with the requested admin name and email/password for initial setup. Before running `npm run seed-admin`, set `MYSQL_PASSWORD` to the password for your local MySQL account. The seed command creates/promotes the admin account and stores only a bcrypt password hash in MySQL. Do not commit or share `.env`; change the initial admin password before deploying publicly.
+
+
+## Email OTP password recovery (Resend)
+The app supports a six-digit email OTP recovery flow. To enable delivery, add these environment variables in Render (and locally in `.env`):
+- `RESEND_API_KEY`: API key from your Resend account.
+- `RESEND_FROM_EMAIL`: sender address on a domain verified in Resend, e.g. `Savro Security <security@your-verified-domain.com>`.
+
+Do not commit real API keys to GitHub or put them in frontend files. The app automatically creates the `password_reset_otps` table at startup; no manual data migration or changes to existing records are required. Without both Resend variables, requests for existing accounts return a setup error and no email is sent. Verify your sending domain and test email delivery before announcing the feature to users.
