@@ -452,4 +452,19 @@ tbody td[colspan="7"] .empty {
     -webkit-overflow-scrolling: touch;
   }
 }
+/* Savro sidebar icons: consistent outline style, no emoji */
+.sidebar .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: currentColor;
+}
 
+.sidebar .nav-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
