@@ -47,6 +47,23 @@ async function logout(){
 }
 $('#logoutBtn').onclick=logout;$('#mobileMenu').onclick=()=>$('.sidebar').classList.toggle('open');
 
+/* Mobile: close the sidebar when tapping outside it */
+document.addEventListener('click', function(event) {
+  if (window.innerWidth > 780) return;
+
+  const sidebar = document.querySelector('.sidebar');
+  const menuButton = document.querySelector('#mobileMenu');
+
+  if (!sidebar || !sidebar.classList.contains('open')) return;
+
+  if (
+    !sidebar.contains(event.target) &&
+    !menuButton.contains(event.target)
+  ) {
+    sidebar.classList.remove('open');
+  }
+});
+
 const refreshBtn = $('#refreshBtn');
 
 if (refreshBtn) {
