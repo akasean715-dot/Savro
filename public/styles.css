@@ -468,3 +468,62 @@ tbody td[colspan="7"] .empty {
   width: 18px;
   height: 18px;
 }
+
+
+/* Savro Support shortcuts */
+.support-nav-link {
+  text-decoration: none;
+  cursor: pointer;
+}
+.support-nav-link .nav-icon,
+.support-top-link svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.support-nav-link .nav-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.support-top-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: #4d596e;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.support-top-link:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+@media(max-width:780px) {
+  .support-top-link {
+    min-height: 36px;
+    padding: 0 9px;
+    gap: 6px;
+    font-size: 11px;
+  }
+}
+@media(max-width:480px) {
+  .support-top-link {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    gap: 0;
+  }
+  .support-top-link span {
+    display: none;
+  }
+}
