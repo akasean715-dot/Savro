@@ -9,7 +9,15 @@
     tickets: [],
     selectedTicket: null,
     customerCode: null,
-    customerToken: null
+    customerToken: null,
+    customerSessionToken: localStorage.getItem("savro_support_customer_session") || "",
+    savedCustomerTickets: (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("savro_support_saved_tickets") || "[]");
+        return Array.isArray(saved) ? saved.filter(item => item && typeof item.ticketCode === "string" && typeof item.accessToken === "string") : [];
+      } catch { return []; }
+    })(),
+    recoveryEmail: ""
   };
 
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -52,6 +60,62 @@
     return data;
   }
 
+  function persistCustomerTickets() {
+    try { localStorage.setItem("savro_support_saved_tickets", JSON.stringify(state.savedCustomerTickets)); }
+    catch { showToast("This browser could not save support access. Please keep your ticket token safe."); }
+  }
+
+  function saveCustomerTicket(code, token, details = {}) {
+    if (!code || !token) return;
+    const existing = state.savedCustomerTickets.find(item => item.ticketCode === code);
+    const item = { ...(existing || {}), ticketCode: code, accessToken: token, ...details, savedAt: new Date().toISOString() };
+    state.savedCustomerTickets = [item, ...state.savedCustomerTickets.filter(entry => entry.ticketCode !== code)].slice(0, 30);
+    persistCustomerTickets();
+  }
+
+  function renderSavedCustomerTickets() {
+    const list = $("#savedTicketList");
+    if (!list) return;
+    if (!state.savedCustomerTickets.length) {
+      list.innerHTML = '<p class="muted">No conversations have been saved on this browser yet. After submitting a request, Savro can remember it here.</p>';
+      return;
+    }
+    list.innerHTML = state.savedCustomerTickets.map((item, index) => `
+      <button type="button" class="ticketrow" data-saved-index="${index}">
+        <strong>${escapeHtml(item.subject || "Support conversation")}</strong>
+        <p>${escapeHtml(item.ticketCode)}</p>
+        <small>Saved on this browser · Open conversation</small>
+      </button>
+    `).join("");
+  }
+
+  async function loadRecoveredCustomerTickets() {
+    const panel = $("#recoveredTicketsPanel");
+    const list = $("#recoveredTicketList");
+    if (!panel || !list || !state.customerSessionToken) return;
+    panel.classList.remove("hidden");
+    list.textContent = "Loading your support requests…";
+    try {
+      const result = await api("/api/customer/tickets", {
+        headers: { "X-Customer-Session": state.customerSessionToken }
+      });
+      const items = Array.isArray(result.items) ? result.items : [];
+      list.innerHTML = items.length ? items.map(item => `
+        <button type="button" class="ticketrow" data-session-ticket="${escapeHtml(item.ticketCode)}">
+          <strong>${escapeHtml(item.subject)}</strong>
+          <p>${escapeHtml(item.ticketCode)} · ${escapeHtml(item.status)}</p>
+          <small>Updated ${formatDate(item.updatedAt)} · Open conversation</small>
+        </button>
+      `).join("") : '<p class="muted">No support requests were found for this email.</p>';
+    } catch (error) {
+      list.textContent = error.message;
+      if (error.message.toLowerCase().includes("expired")) {
+        state.customerSessionToken = "";
+        localStorage.removeItem("savro_support_customer_session");
+      }
+    }
+  }
+
   function showToast(message) {
     const toast = $("#toast");
     if (!toast) return;
@@ -62,7 +126,7 @@
   }
 
   function showView(name, updateUrl = true) {
-    const allowed = ["home", "ticket", "admin", "track"];
+    const allowed = ["home", "ticket", "mytickets", "admin", "track"];
     const target = allowed.includes(name) ? name : "home";
     const section = $(`#${target}View`);
     if (!section) return;
@@ -71,6 +135,10 @@
     section.classList.remove("hidden");
 
     if (target === "home") loadFaq();
+    if (target === "mytickets") {
+      renderSavedCustomerTickets();
+      if (state.customerSessionToken) loadRecoveredCustomerTickets();
+    }
     if (target === "admin") initAdmin();
 
     if (updateUrl) {
@@ -172,6 +240,7 @@
         body: JSON.stringify(payload)
       });
 
+      saveCustomerTicket(result.ticketCode, result.accessToken);
       form.classList.add("hidden");
       const success = $("#ticketSuccess");
       if (!success) throw new Error("Your request was created, but the confirmation panel could not be displayed.");
@@ -181,10 +250,11 @@
         <h2>Request received</h2>
         <p>${escapeHtml(result.message || "Your support request was received.")}</p>
         <p><b>Ticket reference: ${escapeHtml(result.ticketCode)}</b></p>
-        <p>Keep this private access token safe. Anyone with it can view the ticket.</p>
+        <p>Your conversation access has been saved on this browser, so you can return through <b>My requests</b> without entering the token again.</p>
+        <p>Keep a copy of this private token in case you use another device or clear your browser data. Anyone with it can view this ticket.</p>
         <label>Private access token<input readonly value="${escapeHtml(result.accessToken)}"></label>
         <button type="button" id="viewTicket" class="primary">View conversation</button>
-        <p>Confirmation email is not configured. Save your ticket reference and private access token.</p>
+        <p>Forgot your token or using another device? Open <b>My requests</b> and recover access by email.</p>
       `;
       $("#viewTicket")?.addEventListener("click", () => openCustomer(result.ticketCode, result.accessToken));
       showToast("Support request submitted.");
@@ -193,6 +263,58 @@
     } finally {
       if (button) button.disabled = false;
     }
+  });
+
+  $("#recoveryRequestForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = $("button[type='submit']", form);
+    const status = $("#recoveryRequestStatus");
+    const email = String(new FormData(form).get("email") || "").trim().toLowerCase();
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Requesting a verification code…";
+    try {
+      const result = await api("/api/customer/recovery/request", {
+        method: "POST", body: JSON.stringify({ email })
+      });
+      state.recoveryEmail = email;
+      $("#recoveryVerifyForm")?.classList.remove("hidden");
+      if (status) status.textContent = result.message || "If support requests are associated with that email, a code will be sent.";
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    } finally { if (button) button.disabled = false; }
+  });
+
+  $("#recoveryVerifyForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = $("button[type='submit']", form);
+    const status = $("#recoveryVerifyStatus");
+    const code = String(new FormData(form).get("code") || "").trim();
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Verifying your code…";
+    try {
+      const result = await api("/api/customer/recovery/verify", {
+        method: "POST", body: JSON.stringify({ email: state.recoveryEmail, code })
+      });
+      state.customerSessionToken = result.customerSessionToken;
+      localStorage.setItem("savro_support_customer_session", result.customerSessionToken);
+      if (status) status.textContent = "Email verified. Your support requests are now available on this device.";
+      await loadRecoveredCustomerTickets();
+      showToast("Support access restored.");
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    } finally { if (button) button.disabled = false; }
+  });
+
+  $("#customerForgetDevice")?.addEventListener("click", () => {
+    state.customerSessionToken = "";
+    state.savedCustomerTickets = [];
+    localStorage.removeItem("savro_support_customer_session");
+    localStorage.removeItem("savro_support_saved_tickets");
+    $("#recoveredTicketsPanel")?.classList.add("hidden");
+    renderSavedCustomerTickets();
+    showToast("Saved support access removed from this browser.");
   });
 
   function initAdmin() {
@@ -285,6 +407,13 @@
   document.addEventListener("click", event => {
     const ticket = event.target.closest("[data-ticket-id]");
     if (ticket) openAdminTicket(ticket.dataset.ticketId);
+    const saved = event.target.closest("[data-saved-index]");
+    if (saved) {
+      const item = state.savedCustomerTickets[Number(saved.dataset.savedIndex)];
+      if (item) openCustomer(item.ticketCode, item.accessToken);
+    }
+    const recovered = event.target.closest("[data-session-ticket]");
+    if (recovered) openCustomer(recovered.dataset.sessionTicket, "", true);
   });
 
   async function openAdminTicket(id) {
@@ -366,20 +495,24 @@
     }
   }
 
-  async function openCustomer(code, token) {
+  async function openCustomer(code, token, useSession = false) {
     state.customerCode = code;
-    state.customerToken = token;
+    state.customerToken = token || "";
+    if (token) saveCustomerTicket(code, token);
+    state.useCustomerSession = Boolean(useSession);
     showView("track");
     await loadCustomerTicket();
   }
 
   async function loadCustomerTicket() {
-    if (!state.customerCode || !state.customerToken) return;
+    if (!state.customerCode || (!state.customerToken && !(state.customerSessionToken && state.useCustomerSession))) return;
     try {
-      const result = await api(`/api/tickets/${encodeURIComponent(state.customerCode)}`, {
-        headers: { "X-Ticket-Access": state.customerToken }
-      });
+      const customerHeaders = state.customerToken
+        ? { "X-Ticket-Access": state.customerToken }
+        : (state.customerSessionToken && state.useCustomerSession ? { "X-Customer-Session": state.customerSessionToken } : {});
+      const result = await api(`/api/tickets/${encodeURIComponent(state.customerCode)}`, { headers: customerHeaders });
       const ticket = result.ticket;
+      if (state.customerToken) saveCustomerTicket(state.customerCode, state.customerToken, { subject: ticket.subject, status: ticket.status });
       if ($("#trackTitle")) $("#trackTitle").textContent = `${ticket.ticketCode} — ${ticket.subject}`;
       if ($("#trackMeta")) $("#trackMeta").textContent = `Status: ${ticket.status} · Updated ${formatDate(ticket.updatedAt)}`;
       if ($("#trackMessages")) {
@@ -404,9 +537,11 @@
     const button = $("button[type='submit'], button:not([type])", form);
     if (button) button.disabled = true;
     try {
+      const customerHeaders = state.customerToken
+        ? { "X-Ticket-Access": state.customerToken }
+        : (state.customerSessionToken && state.useCustomerSession ? { "X-Customer-Session": state.customerSessionToken } : {});
       await api(`/api/tickets/${encodeURIComponent(state.customerCode)}/messages`, {
-        method: "POST",
-        headers: { "X-Ticket-Access": state.customerToken },
+        method: "POST", headers: customerHeaders,
         body: JSON.stringify({ message: textarea?.value || "" })
       });
       if (textarea) textarea.value = "";
@@ -421,7 +556,7 @@
 
   function handleRoute() {
     const hash = location.hash.replace(/^#/, "");
-    showView(["admin", "ticket", "track"].includes(hash) ? hash : "home", false);
+    showView(["admin", "ticket", "mytickets", "track"].includes(hash) ? hash : "home", false);
   }
 
   window.addEventListener("hashchange", handleRoute);

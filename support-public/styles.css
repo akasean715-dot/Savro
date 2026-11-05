@@ -7,3 +7,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   outline: 2px solid #7896ff;
   outline-offset: 2px;
 }
+
+/* Saved customer conversations and email recovery */
+.savedtickets{display:grid;gap:8px;max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.savedtickets:empty{display:none}
+.savedtickets .ticketrow{border-bottom:1px solid var(--line)}
+.recoveryhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.recoveryhead h2{margin:0;font:800 21px Manrope}
+#recoveryVerifyForm{padding-top:8px;border-top:1px solid var(--line);margin-top:8px}
+@media(max-width:720px){.recoveryhead{align-items:flex-start;flex-direction:column}}

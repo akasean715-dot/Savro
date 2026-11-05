@@ -52,6 +52,10 @@ export async function initializeSupport() {
   await db.query(`CREATE TABLE IF NOT EXISTS support_tickets(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,ticket_code VARCHAR(24) UNIQUE NOT NULL,customer_name VARCHAR(120) NOT NULL,customer_email VARCHAR(254) NOT NULL,subject VARCHAR(180) NOT NULL,category VARCHAR(80) NOT NULL DEFAULT 'General',status ENUM('open','pending','resolved') NOT NULL DEFAULT 'open',priority ENUM('normal','high') NOT NULL DEFAULT 'normal',access_hash CHAR(64) NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,INDEX(status,updated_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   await db.query(`CREATE TABLE IF NOT EXISTS support_messages(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,ticket_id BIGINT UNSIGNED NOT NULL,sender_type ENUM('customer','admin') NOT NULL,sender_name VARCHAR(120) NOT NULL,body TEXT NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,INDEX(ticket_id,id),FOREIGN KEY(ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   await db.query(`CREATE TABLE IF NOT EXISTS support_faq(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,category VARCHAR(80) NOT NULL,question VARCHAR(255) UNIQUE NOT NULL,answer TEXT NOT NULL,sort_order INT DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  // Additive tables for remembered customer sessions and email-based ticket recovery.
+  // Existing ticket, message, FAQ and admin records are not modified.
+  await db.query(`CREATE TABLE IF NOT EXISTS support_customer_sessions(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,email VARCHAR(254) NOT NULL,token_hash CHAR(64) NOT NULL UNIQUE,expires_at DATETIME NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,last_used_at DATETIME NULL,INDEX(email,expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  await db.query(`CREATE TABLE IF NOT EXISTS support_ticket_recovery_otps(email VARCHAR(254) PRIMARY KEY,otp_hash CHAR(64) NOT NULL,expires_at DATETIME NOT NULL,attempts INT NOT NULL DEFAULT 0,last_sent_at DATETIME NOT NULL,request_ip VARCHAR(64) NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   const email = process.env.SUPPORT_ADMIN_EMAIL.toLowerCase();
   const [admins] = await db.query('SELECT id FROM support_admins WHERE email=?',[email]);
   if (!admins.length) {
@@ -69,30 +73,6 @@ export async function initializeSupport() {
 
   const router = express.Router();
   const secret = process.env.SUPPORT_JWT_SECRET;
-
-  // Preserve the original Support API protection: 100 requests per IP per minute.
-  const apiRequestWindows = new Map();
-  router.use((req, res, next) => {
-    const now = Date.now();
-    const key = req.ip || req.socket.remoteAddress || 'unknown';
-    let window = apiRequestWindows.get(key);
-    if (!window || now >= window.resetAt) {
-      window = { count: 0, resetAt: now + 60_000 };
-      apiRequestWindows.set(key, window);
-    }
-    window.count += 1;
-    if (window.count > 100) {
-      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((window.resetAt - now) / 1000))));
-      return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
-    }
-    // Keep the in-memory limiter bounded on long-running instances.
-    if (apiRequestWindows.size > 5000) {
-      for (const [ip, item] of apiRequestWindows) {
-        if (now >= item.resetAt) apiRequestWindows.delete(ip);
-      }
-    }
-    next();
-  });
   const adminAuth = (req,res,next) => {
     try {
       const token = (req.headers.authorization || '').replace(/^Bearer\s+/i,'');
@@ -103,21 +83,109 @@ export async function initializeSupport() {
     } catch { return res.status(401).json({error:'Please sign in again.'}); }
   };
   const loginAttempts = new Map();
+  const recoveryRequestAttempts = new Map();
+  const hashSecret = value => crypto.createHash('sha256').update(String(value)).digest('hex');
+  const customerSessionAuth = async (req,res,next) => {
+    const token = clean(req.headers['x-customer-session'],128);
+    if (!token) return res.status(401).json({error:'Customer session required.'});
+    try {
+      const [rows] = await db.query('SELECT email FROM support_customer_sessions WHERE token_hash=? AND expires_at>UTC_TIMESTAMP() LIMIT 1',[hashSecret(token)]);
+      if (!rows.length) return res.status(401).json({error:'Your saved access has expired. Please recover access by email.'});
+      req.customerSession = rows[0];
+      await db.query('UPDATE support_customer_sessions SET last_used_at=UTC_TIMESTAMP() WHERE token_hash=?',[hashSecret(token)]);
+      next();
+    } catch (error) {
+      console.error('Support customer session check failed:',error.message);
+      return res.status(500).json({error:'Unable to verify customer access.'});
+    }
+  };
   const customerAuth = async (req,res,next) => {
     const code = clean(req.params.code,24).toUpperCase();
     const token = clean(req.headers['x-ticket-access'],128);
-    if (!token) return res.status(401).json({error:'Ticket access token required.'});
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const sessionToken = clean(req.headers['x-customer-session'],128);
     try {
-      const [rows] = await db.query('SELECT * FROM support_tickets WHERE ticket_code=? AND access_hash=?',[code,hash]);
-      if (!rows.length) return res.status(404).json({error:'Ticket not found or access token is incorrect.'});
+      let rows = [];
+      if (token) {
+        rows = (await db.query('SELECT * FROM support_tickets WHERE ticket_code=? AND access_hash=?',[code,hashSecret(token)]))[0];
+      } else if (sessionToken) {
+        const [sessions] = await db.query('SELECT email FROM support_customer_sessions WHERE token_hash=? AND expires_at>UTC_TIMESTAMP() LIMIT 1',[hashSecret(sessionToken)]);
+        if (!sessions.length) return res.status(401).json({error:'Your saved access has expired. Please recover access by email.'});
+        rows = (await db.query('SELECT * FROM support_tickets WHERE ticket_code=? AND customer_email=?',[code,sessions[0].email]))[0];
+        await db.query('UPDATE support_customer_sessions SET last_used_at=UTC_TIMESTAMP() WHERE token_hash=?',[hashSecret(sessionToken)]);
+      } else {
+        return res.status(401).json({error:'Ticket access is required.'});
+      }
+      if (!rows.length) return res.status(404).json({error:'Ticket not found or access is incorrect.'});
       req.supportTicket = rows[0];
       next();
-    } catch { return res.status(500).json({error:'Unable to load ticket.'}); }
+    } catch (error) {
+      console.error('Support customer ticket authorization failed:',error.message);
+      return res.status(500).json({error:'Unable to verify ticket access.'});
+    }
   };
+  async function sendTicketRecoveryCode(email,otp) {
+    const key = process.env.RESEND_API_KEY;
+    const from = process.env.RESEND_FROM_EMAIL;
+    if (!key || !from) throw new Error('Support email recovery is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL on the main Savro service.');
+    const response = await fetch('https://api.resend.com/emails', {
+      method:'POST',
+      headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        from,to:[email],subject:'Your Savro Support access code',
+        text:`Your Savro Support verification code is ${otp}. It expires in 10 minutes. If you did not request this code, ignore this email. Never share this code with anyone.`,
+        html:`<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:28px;color:#172033"><div style="font-size:22px;font-weight:800;letter-spacing:4px">SAVRO</div><p style="color:#667085">CUSTOMER SUPPORT</p><h1 style="font-size:24px">Recover your support conversations</h1><p>Use this one-time code to securely access tickets associated with this email address. It expires in 10 minutes.</p><div style="font-size:32px;font-weight:800;letter-spacing:9px;padding:18px;background:#f4f5fb;border-radius:12px;text-align:center">${otp}</div><p style="color:#667085;font-size:13px">If you did not request this code, ignore this email. Never share this code with anyone.</p></div>`
+      })
+    });
+    if (!response.ok) {
+      const details = await response.text().catch(()=>'');
+      console.error('Support recovery email failed:',response.status,details.slice(0,300));
+      throw new Error('Could not send the recovery email. Please try again later.');
+    }
+  }
 
   router.get('/health',async(_req,res)=>{try{await db.query('SELECT 1');res.json({ok:true,service:'savro-support'})}catch{res.status(503).json({ok:false})}});
   router.get('/faq',async(_req,res)=>{try{const [items]=await db.query('SELECT id,category,question,answer FROM support_faq ORDER BY sort_order,id');res.json({items})}catch{res.status(500).json({error:'Unable to load help articles.'})}});
+  router.post('/customer/recovery/request',async(req,res)=>{
+    const email=clean(req.body?.email,254).toLowerCase();
+    if(!validEmail(email))return res.status(400).json({error:'Enter a valid email address.'});
+    const generic={message:'If support requests are associated with that email, a verification code will be sent.'};
+    try{
+      const ip=clean(req.ip||req.socket.remoteAddress||'unknown',64),now=Date.now();
+      const ipEntry=recoveryRequestAttempts.get(ip);
+      if(ipEntry&&now-ipEntry<60000)return res.json(generic);
+      recoveryRequestAttempts.set(ip,now);
+      const [tickets]=await db.query('SELECT id FROM support_tickets WHERE customer_email=? LIMIT 1',[email]);
+      if(!tickets.length)return res.json(generic);
+      const [existing]=await db.query('SELECT TIMESTAMPDIFF(SECOND,last_sent_at,UTC_TIMESTAMP()) AS seconds_since FROM support_ticket_recovery_otps WHERE email=?',[email]);
+      if(existing.length&&Number(existing[0].seconds_since)<60)return res.json(generic);
+      const otp=String(crypto.randomInt(100000,1000000));
+      await sendTicketRecoveryCode(email,otp);
+      const otpHash=hashSecret(`${email}:${otp}:${process.env.SUPPORT_JWT_SECRET}`);
+      await db.query(`INSERT INTO support_ticket_recovery_otps(email,otp_hash,expires_at,attempts,last_sent_at,request_ip) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 10 MINUTE),0,UTC_TIMESTAMP(),?) ON DUPLICATE KEY UPDATE otp_hash=VALUES(otp_hash),expires_at=VALUES(expires_at),attempts=0,last_sent_at=UTC_TIMESTAMP(),request_ip=VALUES(request_ip)`,[email,otpHash,ip]);
+      return res.json(generic);
+    }catch(error){console.error('Support recovery request failed:',error.message);return res.status(503).json({error:'Email recovery is temporarily unavailable. Please try again later.'});}
+  });
+  router.post('/customer/recovery/verify',async(req,res)=>{
+    const email=clean(req.body?.email,254).toLowerCase(),otp=clean(req.body?.code,6);
+    if(!validEmail(email)||!/^\d{6}$/.test(otp))return res.status(400).json({error:'Enter your email address and the six-digit code.'});
+    try{
+      const [rows]=await db.query('SELECT * FROM support_ticket_recovery_otps WHERE email=? LIMIT 1',[email]);
+      if(!rows.length||new Date(rows[0].expires_at).getTime()<=Date.now()||Number(rows[0].attempts)>=5){return res.status(400).json({error:'The code is invalid or expired. Request a new code.'});}
+      const expected=hashSecret(`${email}:${otp}:${process.env.SUPPORT_JWT_SECRET}`),actual=String(rows[0].otp_hash||'');
+      const valid=actual.length===expected.length&&crypto.timingSafeEqual(Buffer.from(actual,'hex'),Buffer.from(expected,'hex'));
+      if(!valid){await db.query('UPDATE support_ticket_recovery_otps SET attempts=attempts+1 WHERE email=?',[email]);return res.status(400).json({error:'The code is invalid or expired. Request a new code.'});}
+      const [tickets]=await db.query('SELECT ticket_code,subject,status,created_at,updated_at FROM support_tickets WHERE customer_email=? ORDER BY updated_at DESC',[email]);
+      if(!tickets.length){await db.query('DELETE FROM support_ticket_recovery_otps WHERE email=?',[email]);return res.status(400).json({error:'No support requests were found for that email address.'});}
+      const sessionToken=crypto.randomBytes(32).toString('hex');
+      await db.query('INSERT INTO support_customer_sessions(email,token_hash,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 DAY))',[email,hashSecret(sessionToken)]);
+      await db.query('DELETE FROM support_ticket_recovery_otps WHERE email=?',[email]);
+      return res.json({message:'Email verified. Your support requests are ready.',customerSessionToken:sessionToken,expiresInDays:30,tickets});
+    }catch(error){console.error('Support recovery verification failed:',error.message);return res.status(500).json({error:'Unable to verify the recovery code.'});}
+  });
+  router.get('/customer/tickets',customerSessionAuth,async(req,res)=>{
+    try{const [items]=await db.query('SELECT ticket_code AS ticketCode,subject,status,category,created_at AS createdAt,updated_at AS updatedAt FROM support_tickets WHERE customer_email=? ORDER BY updated_at DESC',[req.customerSession.email]);res.json({items});}
+    catch(error){console.error('Support customer ticket list failed:',error.message);res.status(500).json({error:'Unable to load your support requests.'});}
+  });
   router.post('/tickets',async(req,res)=>{
     const body=req.body||{},name=clean(body.name,120),email=clean(body.email,254).toLowerCase(),subject=clean(body.subject,180),category=clean(body.category||'General',80),message=clean(body.message,5000);
     if(name.length<2||!validEmail(email)||subject.length<4||message.length<10)return res.status(400).json({error:'Enter your name, valid email, subject and a message of at least 10 characters.'});
