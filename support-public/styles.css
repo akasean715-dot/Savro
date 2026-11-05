@@ -16,3 +16,5 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .recoveryhead h2{margin:0;font:800 21px Manrope}
 #recoveryVerifyForm{padding-top:8px;border-top:1px solid var(--line);margin-top:8px}
 @media(max-width:720px){.recoveryhead{align-items:flex-start;flex-direction:column}}
+
+.conversation-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}

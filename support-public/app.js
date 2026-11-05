@@ -240,24 +240,13 @@
         body: JSON.stringify(payload)
       });
 
+      // Remember access on this browser and take the customer straight into the new chat.
       saveCustomerTicket(result.ticketCode, result.accessToken);
-      form.classList.add("hidden");
-      const success = $("#ticketSuccess");
-      if (!success) throw new Error("Your request was created, but the confirmation panel could not be displayed.");
-
-      success.classList.remove("hidden");
-      success.innerHTML = `
-        <h2>Request received</h2>
-        <p>${escapeHtml(result.message || "Your support request was received.")}</p>
-        <p><b>Ticket reference: ${escapeHtml(result.ticketCode)}</b></p>
-        <p>Your conversation access has been saved on this browser, so you can return through <b>My requests</b> without entering the token again.</p>
-        <p>Keep a copy of this private token in case you use another device or clear your browser data. Anyone with it can view this ticket.</p>
-        <label>Private access token<input readonly value="${escapeHtml(result.accessToken)}"></label>
-        <button type="button" id="viewTicket" class="primary">View conversation</button>
-        <p>Forgot your token or using another device? Open <b>My requests</b> and recover access by email.</p>
-      `;
-      $("#viewTicket")?.addEventListener("click", () => openCustomer(result.ticketCode, result.accessToken));
-      showToast("Support request submitted.");
+      form.reset();
+      form.classList.remove("hidden");
+      $("#ticketSuccess")?.classList.add("hidden");
+      await openCustomer(result.ticketCode, result.accessToken);
+      showToast("Your support conversation is ready.");
     } catch (error) {
       if (status) status.textContent = error.message;
     } finally {
@@ -506,6 +495,8 @@
 
   async function loadCustomerTicket() {
     if (!state.customerCode || (!state.customerToken && !(state.customerSessionToken && state.useCustomerSession))) return;
+    if (state.customerRefreshInFlight) return;
+    state.customerRefreshInFlight = true;
     try {
       const customerHeaders = state.customerToken
         ? { "X-Ticket-Access": state.customerToken }
@@ -526,6 +517,17 @@
       $("#customerReply")?.classList.toggle("hidden", ticket.status === "resolved");
     } catch (error) {
       if ($("#trackMessages")) $("#trackMessages").textContent = error.message;
+      if (/ticket not found|access token is incorrect|saved access has expired/i.test(error.message)) {
+        state.savedCustomerTickets = state.savedCustomerTickets.filter(item => item.ticketCode !== state.customerCode);
+        persistCustomerTickets();
+        state.customerCode = null;
+        state.customerToken = null;
+        state.useCustomerSession = false;
+        showView("home");
+        showToast("That saved conversation needs access recovery. Open My requests to recover it by email.");
+      }
+    } finally {
+      state.customerRefreshInFlight = false;
     }
   }
 
@@ -556,8 +558,29 @@
 
   function handleRoute() {
     const hash = location.hash.replace(/^#/, "");
-    showView(["admin", "ticket", "mytickets", "track"].includes(hash) ? hash : "home", false);
+    if (["admin", "ticket", "mytickets"].includes(hash)) {
+      showView(hash, false);
+      return;
+    }
+    if (hash === "track" || !hash) {
+      const lastConversation = state.savedCustomerTickets[0];
+      if (lastConversation && !state.customerCode) {
+        openCustomer(lastConversation.ticketCode, lastConversation.accessToken);
+        return;
+      }
+      if (hash === "track") {
+        showView("track", false);
+        if (state.customerCode) loadCustomerTicket();
+        return;
+      }
+    }
+    showView("home", false);
   }
+
+  // Refresh the open conversation periodically so new support replies appear without a manual reload.
+  window.setInterval(() => {
+    if (state.customerCode && !$("#trackView")?.classList.contains("hidden")) loadCustomerTicket();
+  }, 15000);
 
   window.addEventListener("hashchange", handleRoute);
   window.addEventListener("popstate", handleRoute);
