@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { initializeSupport } from './support-integration.js';
 
 const app=express(), PORT=Number(process.env.PORT||3000), ROOT_DIR=path.dirname(fileURLToPath(import.meta.url)), PUBLIC_DIR=path.join(ROOT_DIR,'public');
 if(!process.env.JWT_SECRET || process.env.JWT_SECRET.length<32) throw new Error('Set JWT_SECRET to a random secret of at least 32 characters in .env.');
@@ -207,6 +208,19 @@ app.post('/api/admin/users/:id/extend-trial',auth,adminOnly,async(req,res)=>{con
 app.get('/api/admin/plans',auth,adminOnly,async(_req,res)=>res.json(await listPlans()));
 app.post('/api/admin/plans',auth,adminOnly,async(req,res)=>{const b=req.body||{},price=Number(b.price),name=typeof b.name==='string'?b.name.trim():'';if(!name||name.length>50||!Number.isFinite(price)||price<=0||!['monthly','yearly'].includes(b.period||'monthly'))return res.status(400).json({message:'Enter a plan name (up to 50 characters), a positive price, and a valid billing period.'});res.status(201).json(await addPlan({name,price,period:b.period||'monthly',interval:1,features:Array.isArray(b.features)?b.features:[],active:true}))});
 app.patch('/api/admin/plans/:id',auth,adminOnly,async(req,res)=>{const allowed=['name','price','period','interval','features','active'],u=Object.fromEntries(Object.entries(req.body||{}).filter(([k])=>allowed.includes(k)));if('price'in u&&(!Number.isFinite(Number(u.price))||Number(u.price)<0))return res.status(400).json({message:'Plan price must be non-negative.'});if('period'in u&&!['monthly','yearly'].includes(u.period))return res.status(400).json({message:'Invalid plan period.'});if('features'in u&&(!Array.isArray(u.features)||u.features.some(x=>typeof x!=='string')))return res.status(400).json({message:'Features must be a list of text values.'});if('price'in u)u.price=Number(u.price);const plan=await updatePlan(req.params.id,u);if(!plan)return res.status(404).json({message:'Plan not found.'});res.json(plan)});
+// Savro Support is mounted under its own URL and database namespace.
+// A Support configuration/database problem must not prevent the main Savro app from starting.
+app.use('/support', express.static(path.join(ROOT_DIR,'support-public')));
+try {
+    app.use('/api/support', await initializeSupport());
+    console.log('Savro Support integration initialized.');
+} catch (supportError) {
+    console.error('Savro Support is temporarily unavailable; main Savro will continue:', supportError.message);
+    app.use('/api/support', (_req, res) => res.status(503).json({
+        error: 'Savro Support is temporarily unavailable. Please try again later.'
+    }));
+}
+
 app.get('/api/health',async(_req,res)=>{try{await pool.query('SELECT 1');res.json({ok:true,service:'Ledgerly MySQL API'})}catch{res.status(503).json({ok:false,service:'Ledgerly MySQL API',message:'MySQL is unavailable.'})}});
 app.get(/.*/, (req,res,next)=>{if(req.path.startsWith('/api/'))return res.status(404).json({message:'API endpoint not found.'});res.sendFile(path.join(PUBLIC_DIR,'index.html'),e=>{if(e)next(e)})});
 app.use((err,req,res,next)=>{if(res.headersSent)return next(err);console.error('Request failed:',err.message);const s=Number(err.status||err.statusCode);res.status(s>=400&&s<600?s:500).json({message:s>=400&&s<500?err.message:'An unexpected server error occurred.'})});
