@@ -527,3 +527,67 @@ tbody td[colspan="7"] .empty {
     display: none;
   }
 }
+
+/* History page */
+.history-summary{margin-bottom:16px}.history-summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.history-summary-head h3{font:800 16px Manrope;margin:5px 0}.history-summary-head p,.history-note{font-size:11px;color:var(--muted);line-height:1.6}.history-year{display:grid;gap:6px;min-width:125px;font-size:10px;font-weight:700;color:var(--muted)}.history-year select,.history-toolbar select{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;color:#4d596e;font:600 11px Manrope}.history-toolbar{align-items:center}.history-toolbar .table-search{min-width:150px}.history-note{margin:12px 2px 0}.history-table-panel{margin-top:0}
+@media(max-width:600px){.history-summary-head{flex-direction:column}.history-year{width:100%}.history-year select{width:100%}.history-toolbar{flex-wrap:wrap}.history-toolbar .table-search{max-width:none;flex-basis:100%}.history-toolbar select{flex:1}}
+
+
+/* History monthly income calendar */
+.history-monthly-panel{margin-top:16px;padding:20px}
+.history-monthly-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.history-monthly-head h3{font:800 17px Manrope;margin:5px 0;color:var(--ink)}
+.history-monthly-head p{font-size:11px;color:var(--muted);line-height:1.5;margin:5px 0 0}
+.history-total-income {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 15px;
+  border-radius: 999px;
+  background: #f0eeff;
+  color: #5148df;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.history-month-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.history-month {
+  min-width: 0;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1px solid #dedaff;
+  border-radius: 13px;
+  background: #fbfaff;
+  color: #635bff;
+  font: 500 12px Manrope;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.history-month b {
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.history-month:hover {
+  border-color: #635bff;
+  background: #f4f2ff;
+  transform: translateY(-1px);
+}
+.history-month.active {
+  background: #635bff;
+  border-color: #635bff;
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(99, 91, 255, .20);
+}
+.history-month:focus-visible {
+  outline: 3px solid rgba(99, 91, 255, .25);
+  outline-offset: 2px;
+}
+@media(max-width:900px){.history-month-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:600px){.history-monthly-panel{padding:15px}.history-monthly-head{align-items:flex-start;flex-direction:column}.history-total-income{white-space:normal}.history-month-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.history-month{min-height:68px;padding:10px 5px;font-size:11px}.history-month b{font-size:12px}}
+@media(max-width:380px){.history-month-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
