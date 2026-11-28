@@ -591,3 +591,44 @@ tbody td[colspan="7"] .empty {
 @media(max-width:900px){.history-month-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){.history-monthly-panel{padding:15px}.history-monthly-head{align-items:flex-start;flex-direction:column}.history-total-income{white-space:normal}.history-month-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.history-month{min-height:68px;padding:10px 5px;font-size:11px}.history-month b{font-size:12px}}
 @media(max-width:380px){.history-month-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* SAVRO notification bell and dropdown — isolated header addition */
+.notification-wrap{position:relative;display:flex;align-items:center;flex:0 0 auto}
+.notification-btn{position:relative;width:42px;height:38px;display:grid;place-items:center;border:1px solid #d8f1f4;border-radius:2px;background:#e8fbfd;color:#42c4d2;cursor:pointer;padding:0;transition:background .16s ease,border-color .16s ease}
+.notification-btn:hover{background:#dff7fa;border-color:#bcecf1}
+.notification-btn:focus-visible{outline:3px solid rgba(66,196,210,.25);outline-offset:2px}
+.notification-btn svg{width:22px;height:22px;fill:currentColor;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.notification-count{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;display:grid;place-items:center;border:2px solid #fff;border-radius:20px;background:#e5485d;color:#fff;font:800 9px Manrope,sans-serif;line-height:1}
+.notification-count.hidden{display:none}
+.notification-panel{position:absolute;top:49px;left:0;width:min(360px,calc(100vw - 28px));max-height:min(470px,calc(100vh - 115px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #e5e9f0;border-radius:15px;background:#fff;box-shadow:0 18px 48px rgba(16,24,40,.17);z-index:40}
+.notification-panel.hidden{display:none}
+.notification-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;border-bottom:1px solid #edf0f4}
+.notification-panel-head b,.notification-panel-head small{display:block}
+.notification-panel-head b{font:800 14px Manrope,sans-serif;color:#182230}
+.notification-panel-head small{margin-top:3px;color:#8a94a6;font-size:10px}
+.notification-panel-head button{border:0;background:transparent;color:#635bff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
+.notification-panel-head button:disabled{color:#aab1bd;cursor:default}
+.notification-list{overflow-y:auto;padding:5px}
+.notification-item{width:100%;display:flex;align-items:flex-start;gap:10px;padding:12px 10px;border:0;border-radius:10px;background:#fff;text-align:left;cursor:pointer;color:#182230}
+.notification-item:hover{background:#f7f8fc}
+.notification-item.is-unread{background:#f8fbff}
+.notification-item.is-urgent .notification-item-icon{background:#fff0f0;color:#d9485f}
+.notification-item-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:10px;background:#eefbfc;color:#35b8c7}
+.notification-item-icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.notification-item-icon.invoice{background:#f1efff;color:#635bff}
+.notification-item-icon.trial{background:#fff6e8;color:#bd7b19}
+.notification-item-copy{flex:1;min-width:0}
+.notification-item-copy b{display:block;font-size:11px;line-height:1.4;font-weight:800}
+.notification-item-copy small{display:block;margin-top:4px;color:#778195;font-size:10px;line-height:1.5}
+.notification-unread-dot{width:7px;height:7px;flex:0 0 7px;margin-top:5px;border-radius:50%;background:#635bff}
+.notification-item.is-read .notification-unread-dot{background:transparent}
+.notification-item.is-read .notification-item-copy b{color:#667085;font-weight:650}
+.notification-empty{display:flex;flex-direction:column;align-items:center;gap:7px;padding:28px 16px;color:#8993a4;text-align:center;font-size:11px}
+.notification-empty>span{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#eafaf5;color:#15966b;font-size:16px}
+.notification-empty b{color:#344054;font-size:12px}
+.notification-empty small{max-width:230px;color:#98a1b1;font-size:10px;line-height:1.5}
+@media(max-width:780px){
+  .notification-panel{left:auto;right:0;top:47px;width:min(340px,calc(100vw - 28px))}
+  .notification-btn{width:38px;height:36px}
+}

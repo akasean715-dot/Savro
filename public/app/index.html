@@ -75,7 +75,16 @@
       <button id="logoutBtn" class="logout">↪ Sign out</button>
     </aside>
     <main class="main">
-      <header class="topbar"><div><button id="mobileMenu" class="mobile-menu">☰</button><span class="top-kicker">BUSINESS DASHBOARD</span><h2 id="pageTitle">Overview</h2></div><div class="top-actions"><div class="search"><span>⌕</span><input id="globalSearch" placeholder="Search your workspace..."></div><button id="refreshBtn" class="icon-circle" type="button"
+      <header class="topbar"><div><button id="mobileMenu" class="mobile-menu">☰</button><span class="top-kicker">BUSINESS DASHBOARD</span><h2 id="pageTitle">Overview</h2></div><div class="top-actions"><div class="notification-wrap" id="notificationWrap">
+        <button id="notificationBtn" class="notification-btn" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
+          <span id="notificationCount" class="notification-count hidden">0</span>
+        </button>
+        <section id="notificationPanel" class="notification-panel hidden" aria-label="Notifications">
+          <div class="notification-panel-head"><div><b>Notifications</b><small id="notificationSummary">You're all caught up</small></div><button id="markAllNotificationsRead" type="button">Mark all read</button></div>
+          <div id="notificationList" class="notification-list"><div class="notification-empty">Loading notifications…</div></div>
+        </section>
+      </div><div class="search"><span>⌕</span><input id="globalSearch" placeholder="Search your workspace..."></div><button id="refreshBtn" class="icon-circle" type="button"
         title="Refresh current page" aria-label="Refresh current page">↻</button>
         <a class="support-top-link" href="/support/" target="_blank" rel="noopener noreferrer" aria-label="Help and Support">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

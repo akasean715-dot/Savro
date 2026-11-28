@@ -95,7 +95,83 @@ if (refreshBtn) {
 $$('.nav-item').forEach(b=>b.onclick=()=>{state.page=b.dataset.page;$$('.nav-item').forEach(x=>x.classList.toggle('active',x===b));$('.sidebar').classList.remove('open');render()});
 function setAvatarLogo(logoUrl){const avatar=$('#avatar');if(!avatar)return;if(logoUrl&&/^data:image\/(png|jpeg|webp|gif);base64,/i.test(logoUrl)){avatar.innerHTML=`<img src="${logoUrl}" alt="Business logo">`;avatar.classList.add('has-logo')}else{avatar.textContent=(state.user?.name||'A')[0].toUpperCase();avatar.classList.remove('has-logo')}}
 async function loadAvatarLogo(){try{const d=await api('/api/settings');setAvatarLogo(d.settings?.businessProfile?.logoUrl||'')}catch{setAvatarLogo('')}}
-function showApp(){ $('#authView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#businessName').textContent=state.user.businessName||'My Business';$('#userName').textContent=state.user.name;setAvatarLogo('');loadAvatarLogo();$('#userPlan').textContent=state.user.subscriptionPlan?`${state.user.subscriptionPlan} plan`:state.user.subscriptionStatus==='trial'?'Free trial':'No plan';const trialNotice=$('#trialNotice');if(trialNotice){if(state.user.trialExpired){trialNotice.textContent='Your 30-day free trial has ended. Your existing records are safe and available in read-only mode. Choose a paid plan to resume editing.';trialNotice.classList.remove('hidden');trialNotice.classList.add('bad')}else if(state.user.subscriptionStatus==='trial'&&state.user.trialEndsAt){trialNotice.textContent=`Free trial: ${state.user.trialDaysRemaining} day(s) remaining. No payment method is required during your trial.`;trialNotice.classList.remove('hidden','bad')}else if(state.user.subscriptionStatus==='pending_payment'){trialNotice.textContent=`${state.user.subscriptionPlan||'Paid plan'} selected. Your payment is awaiting confirmation. Your workspace remains read-only until the subscription is activated.`;trialNotice.classList.remove('hidden');trialNotice.classList.add('bad')}else{trialNotice.classList.add('hidden');trialNotice.classList.remove('bad')}}$$('.admin-only').forEach(x=>x.classList.toggle('hidden',state.user.role!=='admin'));render() }
+
+let notificationItems=[];
+function notificationReadKey(){return `savro_notifications_read_${state.user?.uid||state.user?._id||'account'}`}
+function getReadNotifications(){try{return new Set(JSON.parse(localStorage.getItem(notificationReadKey())||'[]'))}catch{return new Set()}}
+function saveReadNotifications(read){try{localStorage.setItem(notificationReadKey(),JSON.stringify([...read].slice(-300)))}catch{}}
+function buildNotifications(products,invoices,settings){
+  const items=[],now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const iv=settings?.settings?.inventoryPreferences||{};
+  if(iv.lowStockAlerts!==false){
+    (Array.isArray(products)?products:[]).forEach(p=>{
+      const stock=Number(p.stock)||0,threshold=Number(p.lowStockAt??iv.lowStockAt??5);
+      if(stock<=threshold)items.push({id:`stock:${p._id}`,type:'stock',icon:'package',title:`${p.name||'Product'} is running low`,message:`${stock} item${stock===1?'':'s'} remaining · Restock threshold ${threshold}`,target:'inventory',level:stock===0?'urgent':'warning'});
+    });
+  }
+  const terms=Math.max(0,Math.min(365,Number(settings?.settings?.invoicePreferences?.paymentTermsDays??14)));
+  (Array.isArray(invoices)?invoices:[]).forEach(inv=>{
+    const status=String(inv.status||'').toLowerCase();
+    if(['paid','cancelled','draft'].includes(status))return;
+    const issued=inv.date?new Date(inv.date):null;
+    if(!issued||!Number.isFinite(issued.getTime()))return;
+    const due=new Date(issued.getFullYear(),issued.getMonth(),issued.getDate()+terms);
+    const days=Math.floor((due.getTime()-today.getTime())/86400000);
+    if(days<0)items.push({id:`invoice-overdue:${inv._id}`,type:'invoice',icon:'file-text',title:`${inv.number||'Invoice'} is overdue`,message:`${inv.customer?.name||'Customer'} · ${money(inv.total)} · ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} overdue`,target:'sales',level:'urgent'});
+    else if(days<=3)items.push({id:`invoice-due:${inv._id}`,type:'invoice',icon:'calendar-clock',title:`${inv.number||'Invoice'} payment is due soon`,message:`${inv.customer?.name||'Customer'} · ${money(inv.total)} · ${days===0?'Due today':`Due in ${days} day${days===1?'':'s'}`}`,target:'sales',level:'warning'});
+  });
+  if(state.user?.subscriptionStatus==='trial'&&state.user?.trialEndsAt){
+    const end=new Date(state.user.trialEndsAt),days=Math.ceil((end.getTime()-now.getTime())/86400000);
+    if(Number.isFinite(end.getTime())&&days>=0&&days<=7)items.push({id:`trial:${state.user.trialEndsAt}`,type:'trial',icon:'clock',title:days===0?'Your free trial ends today':`Your free trial ends in ${days} day${days===1?'':'s'}`,message:'Review your plan to keep using all SAVRO features.',target:'subscriptions',level:'warning'});
+  }
+  return items.sort((a,b)=>({urgent:0,warning:1,info:2}[a.level]-({urgent:0,warning:1,info:2}[b.level])));
+}
+function notificationIcon(type){
+  const paths={stock:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V4h10v3M3 12h18"/>',invoice:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/>',trial:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[type]||paths.trial}</svg>`;
+}
+function renderNotificationPanel(){
+  const list=$('#notificationList'),count=$('#notificationCount'),summary=$('#notificationSummary');
+  if(!list||!count||!summary)return;
+  const read=getReadNotifications(),unread=notificationItems.filter(n=>!read.has(n.id)).length;
+  count.textContent=unread>99?'99+':String(unread);count.classList.toggle('hidden',unread===0);
+  summary.textContent=notificationItems.length?`${unread} unread · ${notificationItems.length} total`:'You’re all caught up';
+  $('#markAllNotificationsRead').disabled=unread===0;
+  if(!notificationItems.length){list.innerHTML='<div class="notification-empty"><span>✓</span><b>You’re all caught up</b><small>New stock and payment reminders will appear here.</small></div>';return}
+  list.innerHTML=notificationItems.map(n=>`<button type="button" class="notification-item ${read.has(n.id)?'is-read':'is-unread'} ${n.level==='urgent'?'is-urgent':''}" data-notification-id="${esc(n.id)}" data-notification-target="${esc(n.target)}"><span class="notification-item-icon ${n.type}">${notificationIcon(n.type)}</span><span class="notification-item-copy"><b>${esc(n.title)}</b><small>${esc(n.message)}</small></span><span class="notification-unread-dot" aria-label="${read.has(n.id)?'Read':'Unread'}"></span></button>`).join('');
+}
+async function refreshNotifications(){
+  if(!state.user||!$('#notificationList'))return;
+  const list=$('#notificationList');list.innerHTML='<div class="notification-empty">Checking your reminders…</div>';
+  try{
+    const [products,invoices,settings]=await Promise.all([api('/api/products'),api('/api/invoices'),api('/api/settings')]);
+    notificationItems=buildNotifications(products,invoices,settings);renderNotificationPanel();
+  }catch(err){list.innerHTML=`<div class="notification-empty">Couldn’t load notifications.<small>${esc(err.message||'Please try again.')}</small></div>`}
+}
+function setupNotifications(){
+  const wrap=$('#notificationWrap'),button=$('#notificationBtn'),panel=$('#notificationPanel');
+  if(!wrap||!button||button.dataset.ready)return;
+  button.dataset.ready='1';
+  button.addEventListener('click',async()=>{
+    const opening=panel.classList.contains('hidden');
+    panel.classList.toggle('hidden',!opening);button.setAttribute('aria-expanded',String(opening));
+    if(opening)await refreshNotifications();
+  });
+  $('#markAllNotificationsRead').addEventListener('click',()=>{
+    const read=getReadNotifications();notificationItems.forEach(n=>read.add(n.id));saveReadNotifications(read);renderNotificationPanel();
+  });
+  $('#notificationList').addEventListener('click',event=>{
+    const item=event.target.closest('[data-notification-id]');if(!item)return;
+    const id=item.dataset.notificationId,target=item.dataset.notificationTarget,read=getReadNotifications();
+    read.add(id);saveReadNotifications(read);renderNotificationPanel();
+    panel.classList.add('hidden');button.setAttribute('aria-expanded','false');
+    if(target){state.page=target;$$('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page===target));render()}
+  });
+  document.addEventListener('click',event=>{
+    if(!wrap.contains(event.target)){panel.classList.add('hidden');button.setAttribute('aria-expanded','false')}
+  });
+}
+function showApp(){ setupNotifications(); refreshNotifications(); $('#authView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#businessName').textContent=state.user.businessName||'My Business';$('#userName').textContent=state.user.name;setAvatarLogo('');loadAvatarLogo();$('#userPlan').textContent=state.user.subscriptionPlan?`${state.user.subscriptionPlan} plan`:state.user.subscriptionStatus==='trial'?'Free trial':'No plan';const trialNotice=$('#trialNotice');if(trialNotice){if(state.user.trialExpired){trialNotice.textContent='Your 30-day free trial has ended. Your existing records are safe and available in read-only mode. Choose a paid plan to resume editing.';trialNotice.classList.remove('hidden');trialNotice.classList.add('bad')}else if(state.user.subscriptionStatus==='trial'&&state.user.trialEndsAt){trialNotice.textContent=`Free trial: ${state.user.trialDaysRemaining} day(s) remaining. No payment method is required during your trial.`;trialNotice.classList.remove('hidden','bad')}else if(state.user.subscriptionStatus==='pending_payment'){trialNotice.textContent=`${state.user.subscriptionPlan||'Paid plan'} selected. Your payment is awaiting confirmation. Your workspace remains read-only until the subscription is activated.`;trialNotice.classList.remove('hidden');trialNotice.classList.add('bad')}else{trialNotice.classList.add('hidden');trialNotice.classList.remove('bad')}}$$('.admin-only').forEach(x=>x.classList.toggle('hidden',state.user.role!=='admin'));render() }
 async function boot(){try{if(!state.token)throw new Error('Sign in');const d=await api('/api/auth/me');state.user=d.user;showApp()}catch{$('#appView').classList.add('hidden');$('#authView').classList.remove('hidden')}}
 function layoutHead(kicker,title,desc,actions=''){return `<div class="page-head"><div><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${desc}</p></div><div class="page-actions">${actions}</div></div>`}
 async function render(){const page=$('#page');$('#pageTitle').textContent={dashboard:'Overview',sales:'Invoices',transactions:'Transactions',history:'History',inventory:'Inventory',items:'Items',reports:'Reports',accounting:'Accounting',settings:'Settings',subscriptions:'Plans & Billing',admin:'Admin panel'}[state.page]||'Overview';page.innerHTML='<div class="empty">Loading your workspace…</div>';try{if(state.page==='dashboard')return await renderDashboard();if(state.page==='sales')return await renderSales();if(state.page==='transactions')return await renderTransactions();if(state.page==='history')return await renderHistory();if(state.page==='inventory')return await renderInventory();if(state.page==='items')return await renderItems();if(state.page==='reports')return await renderReports();if(state.page==='accounting')return await renderAccounting();if(state.page==='settings')return await renderSettings();if(state.page==='subscriptions')return await renderSubscriptions();if(state.page==='admin')return await renderAdmin()}catch(e){page.innerHTML=`<div class="panel empty">${esc(e.message)}</div>`}}
