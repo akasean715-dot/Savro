@@ -123,11 +123,22 @@ function buildNotifications(products,invoices,settings){
   if(state.user?.subscriptionStatus==='trial'&&state.user?.trialEndsAt){
     const end=new Date(state.user.trialEndsAt),days=Math.ceil((end.getTime()-now.getTime())/86400000);
     if(Number.isFinite(end.getTime())&&days>=0&&days<=7)items.push({id:`trial:${state.user.trialEndsAt}`,type:'trial',icon:'clock',title:days===0?'Your free trial ends today':`Your free trial ends in ${days} day${days===1?'':'s'}`,message:'Review your plan to keep using all SAVRO features.',target:'subscriptions',level:'warning'});
+    else if(Number.isFinite(end.getTime())&&days<0)items.push({id:`trial-expired:${state.user.trialEndsAt}`,type:'trial',icon:'clock',title:'Your free trial has expired',message:'Choose a subscription plan to restore editing access.',target:'subscriptions',level:'urgent'});
+  }
+  // Paid-plan expiry reminders use the expiry date saved by the Razorpay subscription webhook.
+  if(state.user?.subscriptionStatus!=='trial'&&state.user?.subscriptionEndsAt){
+    const end=new Date(state.user.subscriptionEndsAt),days=Math.ceil((end.getTime()-now.getTime())/86400000);
+    const plan=state.user.subscriptionPlan||'Your subscription';
+    if(Number.isFinite(end.getTime())){
+      if(days<0)items.push({id:`subscription-expired:${state.user.subscriptionEndsAt}`,type:'subscription',icon:'calendar-clock',title:'Your subscription has expired',message:`Your ${plan} plan has ended. Renew your plan to continue using SAVRO.`,target:'subscriptions',level:'urgent'});
+      else if(days===0)items.push({id:`subscription:${state.user.subscriptionEndsAt}:0`,type:'subscription',icon:'calendar-clock',title:'Your subscription expires today',message:`Your ${plan} plan reaches its end date today. Renew to avoid interruption.`,target:'subscriptions',level:'urgent'});
+      else if([1,3,7].includes(days))items.push({id:`subscription:${state.user.subscriptionEndsAt}:${days}`,type:'subscription',icon:'calendar-clock',title:`Your subscription expires in ${days} day${days===1?'':'s'}`,message:`Your ${plan} plan is nearing its end. Renew to keep using SAVRO.`,target:'subscriptions',level:'warning'});
+    }
   }
   return items.sort((a,b)=>({urgent:0,warning:1,info:2}[a.level]-({urgent:0,warning:1,info:2}[b.level])));
 }
 function notificationIcon(type){
-  const paths={stock:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V4h10v3M3 12h18"/>',invoice:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/>',trial:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
+  const paths={stock:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V4h10v3M3 12h18"/>',invoice:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/>',trial:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',subscription:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h7"/>'};
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[type]||paths.trial}</svg>`;
 }
 function renderNotificationPanel(){
